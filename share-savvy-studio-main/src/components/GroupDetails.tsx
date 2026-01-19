@@ -17,6 +17,8 @@ import { format } from "date-fns";
 
 interface GroupDetailsProps {
   group: Group;
+  expenses: Expense[];
+  members: Member[];
   balances: Balance[];
   totalAmount: number;
   onAddExpense: () => void;
@@ -26,6 +28,8 @@ interface GroupDetailsProps {
 
 export function GroupDetails({
   group,
+  expenses,
+  members,
   balances,
   totalAmount,
   onAddExpense,
@@ -40,12 +44,12 @@ export function GroupDetails({
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="flex -space-x-2">
-                {group.members.slice(0, 4).map((member) => (
+                {members.slice(0, 4).map((member) => (
                   <Avatar key={member.id} name={member.name} size="lg" />
                 ))}
-                {group.members.length > 4 && (
+                {members.length > 4 && (
                   <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground border-2 border-background">
-                    +{group.members.length - 4}
+                    +{members.length - 4}
                   </div>
                 )}
               </div>
@@ -56,7 +60,7 @@ export function GroupDetails({
                 <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
-                    {group.members.length} members
+                    {members.length} members
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
@@ -104,7 +108,7 @@ export function GroupDetails({
               <div>
                 <p className="text-sm text-muted-foreground">Transactions</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {group.expenses.length}
+                  {expenses.length}
                 </p>
               </div>
             </div>
@@ -154,7 +158,7 @@ export function GroupDetails({
                   <BalanceCard
                     key={index}
                     balance={balance}
-                    members={group.members}
+                    members={members}
                   />
                 ))}
               </div>
@@ -162,7 +166,7 @@ export function GroupDetails({
           </TabsContent>
 
           <TabsContent value="expenses" className="space-y-4">
-            {group.expenses.length === 0 ? (
+            {expenses.length} === 0 ? (
               <div className="text-center py-12 bg-card rounded-xl border border-border/50">
                 <Receipt className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">
@@ -178,7 +182,7 @@ export function GroupDetails({
               </div>
             ) : (
               <div className="space-y-3">
-                {[...group.expenses]
+                {[...expenses]
                   .sort(
                     (a, b) =>
                       new Date(b.createdAt).getTime() -
@@ -188,7 +192,7 @@ export function GroupDetails({
                     <ExpenseItem
                       key={expense.id}
                       expense={expense}
-                      members={group.members}
+                      members={members}
                       onDelete={() => onDeleteExpense(expense.id)}
                     />
                   ))}
