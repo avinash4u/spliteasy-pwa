@@ -23,8 +23,6 @@ const Index = () => {
     calculateBalances,
     getGroupTotal,
     clearAllData,
-    loading,
-    syncWithAPI,
   } = useExpenseStore();
 
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -33,142 +31,64 @@ const Index = () => {
 
   const balances = selectedGroup ? calculateBalances(selectedGroup) : [];
 
-  const handleCreateGroup = async (name: string, members: { name: string; email?: string }[]) => {
-    try {
-      await createGroup(name, members);
-      toast({
-        title: "Group Created",
-        description: `"${name}" has been created with ${members.length} members.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create group. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleCreateGroup = (name: string, members: { name: string; email?: string }[]) => {
+    createGroup(name, members);
+    toast({
+      title: "Group Created",
+      description: `"${name}" has been created with ${members.length} members.`,
+    });
   };
 
-  const handleAddExpense = async (expense: Parameters<typeof addExpense>[1]) => {
+  const handleAddExpense = (expense: Parameters<typeof addExpense>[1]) => {
     if (selectedGroupId) {
-      try {
-        await addExpense(selectedGroupId, expense);
-        toast({
-          title: "Expense Added",
-          description: `₹${expense.amount.toLocaleString()} for "${expense.description}" has been added.`,
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to add expense. Please try again.",
-          variant: "destructive",
-        });
-      }
+      addExpense(selectedGroupId, expense);
+      toast({
+        title: "Expense Added",
+        description: `₹${expense.amount.toLocaleString()} for "${expense.description}" has been added.`,
+      });
     }
   };
 
-  const handleAddMember = async (member: { name: string; email?: string }) => {
+  const handleAddMember = (member: { name: string; email?: string }) => {
     if (selectedGroupId) {
-      try {
-        await addMember(selectedGroupId, member);
-        toast({
-          title: "Member Added",
-          description: `${member.name} has been added to group.`,
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to add member. Please try again.",
-          variant: "destructive",
-        });
-      }
+      addMember(selectedGroupId, member);
+      toast({
+        title: "Member Added",
+        description: `${member.name} has been added to group.`,
+      });
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
+  const handleRemoveMember = (memberId: string) => {
     if (selectedGroupId && selectedGroup) {
       const member = selectedGroup.members.find((m) => m.id === memberId);
-      try {
-        await removeMember(selectedGroupId, memberId);
-        toast({
-          title: "Member Removed",
-          description: `${member?.name} has been removed from group.`,
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to remove member. Please try again.",
-          variant: "destructive",
-        });
-      }
+      removeMember(selectedGroupId, memberId);
+      toast({
+        title: "Member Removed",
+        description: `${member?.name} has been removed from group.`,
+      });
     }
   };
 
-  const handleDeleteExpense = async (expenseId: string) => {
+  const handleDeleteExpense = (expenseId: string) => {
     if (selectedGroupId) {
-      try {
-        await deleteExpense(selectedGroupId, expenseId);
-        toast({
-          title: "Expense Deleted",
-          description: "The expense has been removed.",
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to delete expense. Please try again.",
-          variant: "destructive",
-        });
-      }
+      deleteExpense(selectedGroupId, expenseId);
+      toast({
+        title: "Expense Deleted",
+        description: "The expense has been removed.",
+      });
     }
   };
 
-  const handleClearAllData = async () => {
+  const handleClearAllData = () => {
     if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-      try {
-        await clearAllData();
-        toast({
-          title: "Data Cleared",
-          description: "All groups and expenses have been removed.",
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to clear data. Please try again.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
-  const handleSyncWithAPI = async () => {
-    try {
-      await syncWithAPI();
+      clearAllData();
       toast({
-        title: "Sync Complete",
-        description: "Your data has been synchronized with the cloud.",
-      });
-    } catch (error) {
-      toast({
-        title: "Sync Failed",
-        description: "Failed to sync with cloud. Using local data.",
-        variant: "destructive",
+        title: "Data Cleared",
+        description: "All groups and expenses have been removed.",
       });
     }
   };
-
-  // Show loading spinner while data is loading
-  if (loading) {
-    return (
-      <div className="flex h-screen overflow-hidden">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading your expense data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -194,7 +114,6 @@ const Index = () => {
           hasGroups={groups.length > 0}
           onCreateGroup={() => setShowCreateGroup(true)}
           onClearData={handleClearAllData}
-          onSyncWithAPI={handleSyncWithAPI}
         />
       )}
 
