@@ -5,9 +5,10 @@ interface WelcomeScreenProps {
   onCreateGroup: () => void;
   hasGroups: boolean;
   onClearData?: () => void;
+  onSyncWithAPI?: () => void;
 }
 
-export function WelcomeScreen({ onCreateGroup, hasGroups, onClearData }: WelcomeScreenProps) {
+export function WelcomeScreen({ onCreateGroup, hasGroups, onClearData, onSyncWithAPI }: WelcomeScreenProps) {
   return (
     <div className="flex-1 flex items-center justify-center bg-background p-8">
       <div className="max-w-lg text-center animate-in">
@@ -77,9 +78,20 @@ export function WelcomeScreen({ onCreateGroup, hasGroups, onClearData }: Welcome
             variant="outline" 
             size="sm" 
             onClick={onClearData}
-            className="text-red-600 hover:text-red-700 border-red-300"
+            className="text-red-600 hover:text-red-700 border-red-300 mb-2"
           >
             Clear All Data
+          </Button>
+        )}
+
+        {onSyncWithAPI && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onSyncWithAPI}
+            className="text-blue-600 hover:text-blue-700 border-blue-300 mb-2"
+          >
+            Sync with Cloud
           </Button>
         )}
       </div>

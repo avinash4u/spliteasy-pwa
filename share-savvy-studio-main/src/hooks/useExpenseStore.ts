@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Group, Expense, Member, Balance } from '@/types/expense';
+import { apiService } from '@/services/apiService';
 
 // Generate unique IDs
 const generateId = () => Math.random().toString(36).substring(2, 11);
 
-// Load data from localStorage
+// Load data from localStorage (fallback)
 const loadGroupsFromStorage = (): Group[] => {
   try {
     const stored = localStorage.getItem('spliteasy-groups');
@@ -26,7 +27,7 @@ const loadGroupsFromStorage = (): Group[] => {
   return [];
 };
 
-// Save data to localStorage
+// Save data to localStorage (fallback)
 const saveGroupsToStorage = (groups: Group[]) => {
   try {
     localStorage.setItem('spliteasy-groups', JSON.stringify(groups));
@@ -35,68 +36,156 @@ const saveGroupsToStorage = (groups: Group[]) => {
   }
 };
 
-// Mock data for demo (only if no data in storage)
-const getInitialGroups = (): Group[] => {
-  const stored = loadGroupsFromStorage();
-  if (stored.length > 0) {
-    return stored;
+// Get initial groups (try API first, then localStorage)
+const getInitialGroups = async (): Promise<Group[]> => {
+  try {
+    // Try to fetch from API first
+    const apiGroups = await apiService.getGroups();
+    if (apiGroups.length > 0) {
+      console.log('Loaded groups from API:', apiGroups.length);
+      return apiGroups;
+    }
+  } catch (error) {
+    console.log('API not available, using localStorage');
   }
   
-  // Return empty array instead of mock data for fresh start
-  return [];
+  // Fallback to localStorage
+  const stored = loadGroupsFromStorage();
+  console.log('Loaded groups from localStorage:', stored.length);
+  return stored;
 };
 
 export function useExpenseStore() {
-  const [groups, setGroups] = useState<Group[]>(getInitialGroups);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
 
-  // Save to localStorage whenever groups change
+  // Load initial data
   useEffect(() => {
-    saveGroupsToStorage(groups);
-  }, [groups]);
+    const loadData = async () => {
+      setLoading(true);
+      const initialGroups = await getInitialGroups();
+      setGroups(initialGroups);
+      setLoading(false);
+    };
+    
+    loadData();
+  }, []);
 
-  const createGroup = useCallback((name: string, members: Omit<Member, 'id'>[]) => {
-    const newGroup: Group = {
-      id: generateId(),
+  // Save to localStorage whenever groups change (for offline support)
+  useEffect(() => {
+    if (!loading && groups.length > 0) {
+      saveGroupsToStorage(groups);
+    }
+  }, [groups, loading]);
+
+  // Sync with API
+  const syncWithAPI = useCallback(async () => {
+    try {
+      const apiGroups = await apiService.getGroups();
+      setGroups(apiGroups);
+      console.log('Synced groups with API');
+    } catch (error) {
+      console.log('API sync failed, using local data');
+    }
+  }, []);
+
+  const createGroup = useCallback(async (name: string, members: Omit<Member, 'id'>[]) => {
+    const newGroupData = {
       name,
       members: members.map((m) => ({ ...m, id: generateId() })),
       expenses: [],
-      createdAt: new Date(),
     };
-    setGroups((prev) => [...prev, newGroup]);
-    setSelectedGroupId(newGroup.id);
-    console.log('Group created and saved to localStorage:', newGroup.name);
-    return newGroup;
+
+    try {
+      // Try to create on API first
+      const newGroup = await apiService.createGroup(newGroupData);
+      setGroups((prev) => [...prev, newGroup]);
+      setSelectedGroupId(newGroup.id);
+      console.log('Group created on API:', newGroup.name);
+      return newGroup;
+    } catch (error) {
+      console.log('API create failed, using local storage');
+      // Fallback to local storage
+      const newGroup: Group = {
+        ...newGroupData,
+        id: generateId(),
+        createdAt: new Date(),
+      };
+      setGroups((prev) => [...prev, newGroup]);
+      setSelectedGroupId(newGroup.id);
+      return newGroup;
+    }
   }, []);
 
-  const addMember = useCallback((groupId: string, member: Omit<Member, 'id'>) => {
-    const newMember = { ...member, id: generateId() };
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.id === groupId ? { ...g, members: [...g.members, newMember] } : g
-      )
-    );
-    console.log('Member added and saved to localStorage:', newMember.name);
-    return newMember;
+  const addMember = useCallback(async (groupId: string, member: Omit<Member, 'id'>) => {
+    try {
+      // Try to add on API first
+      const newMember = await apiService.addMember(groupId, member);
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId ? { ...g, members: [...g.members, newMember] } : g
+        )
+      );
+      console.log('Member added on API:', newMember.name);
+      return newMember;
+    } catch (error) {
+      console.log('API add member failed, using local storage');
+      // Fallback to local storage
+      const newMember = { ...member, id: generateId() };
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId ? { ...g, members: [...g.members, newMember] } : g
+        )
+      );
+      return newMember;
+    }
   }, []);
 
-  const removeMember = useCallback((groupId: string, memberId: string) => {
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.id === groupId
-          ? { ...g, members: g.members.filter((m) => m.id !== memberId) }
-          : g
-      )
-    );
+  const removeMember = useCallback(async (groupId: string, memberId: string) => {
+    try {
+      // Try to remove on API first
+      await apiService.removeMember(groupId, memberId);
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId
+            ? { ...g, members: g.members.filter((m) => m.id !== memberId) }
+            : g
+        )
+      );
+      console.log('Member removed on API');
+    } catch (error) {
+      console.log('API remove member failed, using local storage');
+      // Fallback to local storage
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId
+            ? { ...g, members: g.members.filter((m) => m.id !== memberId) }
+            : g
+        )
+      );
+    }
   }, []);
 
-  const addExpense = useCallback(
-    (
-      groupId: string,
-      expense: Omit<Expense, 'id' | 'createdAt' | 'groupId'>
-    ) => {
+  const addExpense = useCallback(async (
+    groupId: string,
+    expense: Omit<Expense, 'id' | 'createdAt' | 'groupId'>
+  ) => {
+    try {
+      // Try to add on API first
+      const newExpense = await apiService.addExpense(groupId, expense);
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId ? { ...g, expenses: [...g.expenses, newExpense] } : g
+        )
+      );
+      console.log('Expense added on API:', newExpense.description, '₹' + newExpense.amount);
+      return newExpense;
+    } catch (error) {
+      console.log('API add expense failed, using local storage');
+      // Fallback to local storage
       const newExpense: Expense = {
         ...expense,
         id: generateId(),
@@ -108,20 +197,33 @@ export function useExpenseStore() {
           g.id === groupId ? { ...g, expenses: [...g.expenses, newExpense] } : g
         )
       );
-      console.log('Expense added and saved to localStorage:', newExpense.description, '₹' + newExpense.amount);
       return newExpense;
-    },
-    []
-  );
+    }
+  }, []);
 
-  const deleteExpense = useCallback((groupId: string, expenseId: string) => {
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.id === groupId
-          ? { ...g, expenses: g.expenses.filter((e) => e.id !== expenseId) }
-          : g
-      )
-    );
+  const deleteExpense = useCallback(async (groupId: string, expenseId: string) => {
+    try {
+      // Try to delete on API first
+      await apiService.deleteExpense(groupId, expenseId);
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId
+            ? { ...g, expenses: g.expenses.filter((e) => e.id !== expenseId) }
+            : g
+        )
+      );
+      console.log('Expense deleted on API');
+    } catch (error) {
+      console.log('API delete expense failed, using local storage');
+      // Fallback to local storage
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId
+            ? { ...g, expenses: g.expenses.filter((e) => e.id !== expenseId) }
+            : g
+        )
+      );
+    }
   }, []);
 
   const calculateBalances = useCallback((group: Group): Balance[] => {
@@ -184,16 +286,22 @@ export function useExpenseStore() {
     return group.expenses.reduce((sum, e) => sum + e.amount, 0);
   }, []);
 
-  const clearAllData = useCallback(() => {
+  const clearAllData = useCallback(async () => {
     try {
-      localStorage.removeItem('spliteasy-groups');
-      setGroups([]);
-      setSelectedGroupId(null);
-      console.log('All data cleared from localStorage');
+      // Try to clear from API
+      for (const group of groups) {
+        await apiService.deleteGroup(group.id);
+      }
     } catch (error) {
-      console.error('Error clearing data:', error);
+      console.log('API clear failed, clearing local storage only');
     }
-  }, []);
+    
+    // Always clear local storage
+    localStorage.removeItem('spliteasy-groups');
+    setGroups([]);
+    setSelectedGroupId(null);
+    console.log('All data cleared');
+  }, [groups]);
 
   return {
     groups,
@@ -208,5 +316,7 @@ export function useExpenseStore() {
     calculateBalances,
     getGroupTotal,
     clearAllData,
+    loading,
+    syncWithAPI,
   };
 }
