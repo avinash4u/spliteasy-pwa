@@ -36,39 +36,46 @@ const saveGroupsToStorage = (groups: Group[]) => {
   }
 };
 
-// Get initial groups (try API first, then localStorage)
+// Get initial groups (localStorage first, then try API)
 const getInitialGroups = async (): Promise<Group[]> => {
+  // Always load from localStorage first for immediate UI
+  const stored = loadGroupsFromStorage();
+  console.log('Loaded groups from localStorage:', stored.length);
+  
+  // Try to sync with API in background
   try {
-    // Try to fetch from API first
     const apiGroups = await apiService.getGroups();
     if (apiGroups.length > 0) {
       console.log('Loaded groups from API:', apiGroups.length);
-      return apiGroups;
+      return apiGroups; // Use API data if available
     }
   } catch (error) {
-    console.log('API not available, using localStorage');
+    console.log('API not available, using localStorage data');
   }
   
-  // Fallback to localStorage
-  const stored = loadGroupsFromStorage();
-  console.log('Loaded groups from localStorage:', stored.length);
-  return stored;
+  return stored; // Always return localStorage data as fallback
 };
 
 export function useExpenseStore() {
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<Group[]>(loadGroupsFromStorage());
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start with false for immediate UI
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
 
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
-      const initialGroups = await getInitialGroups();
-      setGroups(initialGroups);
-      setLoading(false);
+      try {
+        const apiGroups = await getInitialGroups();
+        if (apiGroups.length > 0) {
+          setGroups(apiGroups);
+        }
+      } catch (error) {
+        console.log('Background sync failed, using localStorage');
+      } finally {
+        setLoading(false);
+      }
     };
     
     loadData();

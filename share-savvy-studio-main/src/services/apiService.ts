@@ -6,6 +6,11 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
     try {
+      // Only make API requests if we have a valid URL
+      if (!API_URL || API_URL === 'http://localhost:5000/api') {
+        throw new Error('API URL not configured');
+      }
+
       const response = await fetch(`${API_URL}${endpoint}`, {
         headers: {
           'Content-Type': 'application/json',
@@ -40,7 +45,7 @@ class ApiService {
       }));
     } catch (error) {
       console.error('Failed to fetch groups from API:', error);
-      return []; // Fallback to empty array
+      throw error; // Let the store handle the fallback
     }
   }
 
